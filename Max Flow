@@ -1,0 +1,59 @@
+using JuMP, Clp
+
+# incidence matrix 
+# (rows are nodes, columns are arcs, entries represent whether arc enters (-1) or leaves (1) each node)
+#MCNF PROBLEM
+
+using JuMP, Clp, NamedArrays
+#incidence matrix (rows are nodes, columns are arcs, entries rep arc enters(-1) leaves(1) each node)
+A=[1 0 0 0 0 0 0 0 
+    -1 1 0 0 0 0 0 0
+    0 -1 1 1 0 0 0 0 
+    0 0 -1 0 1 1 0 0
+    0 0 0 0 -1 0 1 0
+    0 0 0 0 0 -1 0 1
+    0 0 0 -1 0 0 -1 -1]
+# add a dummy arc from sink (5) to source (0)
+A = [A [-1;0;0;0;0;0;1]]
+
+
+# supply and demand are all 0
+b = [0, 0, 0, 0, 0, 0,0]
+
+# costs should be 0 on every arc except dummy
+# -1 on dummy arc
+c = [0, 0, 0, 0, 0, 0, 0, 0, -1]
+
+# capacities on each arc. make dummy arc capacity "big enough"
+cap = [50, 50, 50, 6, 17, 30, 50, 50, 50] 
+
+m = Model(Clp.Optimizer)
+
+# variables representing how much flow we send on each arc
+@variable(m, x[1:9] >= 0)
+
+# constraints balance flow into and out of each node
+@constraint(m, A*x .== b)
+
+# don't exceed arc capacity
+@constraint(m, x .<= cap)
+
+# minimize the total cost (same as maximizing flow through dummy arc)
+@objective(m, Min, sum(c[i]*x[i] for i in 1:9))
+
+# solve this instance of the max flow problem
+optimize!(m)
+
+# print out the flow on each arc along with total flow
+println("Max flow: ", -objective_value(m)) # need to take negative
+println("These values are per day, how many patients can be helped based on number of ventillators available")
+println("Flow on each arc: ")
+println("Patients waiting to be seen: ", value(x[1]))
+println("Patients being evaluated by nurse: ", value(x[2]))
+println("Patient Admitted: ", value(x[3]))
+println("Patients Discharged: ", value(x[4]))
+println("Admitted Patients on Ventillators: ", value(x[5]))
+println("Admitted Patients Only in Need of Fluids: ", value(x[6]))
+println("Patients on Ventillators Discharged: ", value(x[7]))
+println("Patients only Needing Fluids Discharged: ", value(x[8]))
+println("Dummy: " , value(x[9]))
